@@ -706,6 +706,7 @@ VersionSet::VersionSet(const std::string& dbname,
       last_sequence_(0),
       log_number_(0),
       prev_log_number_(0),
+      write_rate_usec_(0),
       descriptor_file_(NULL),
       descriptor_log_(NULL),
       dummy_versions_(this),
@@ -944,6 +945,7 @@ void VersionSet::Finalize(Version* v) {
   // Precomputed best level for next compaction
   int best_level = -1;
   double best_score = -1;
+  int penalty=0;
 
   for (int level = 0; level < config::kNumLevels-1; level++) {
     double score;
@@ -963,13 +965,22 @@ void VersionSet::Finalize(Version* v) {
           static_cast<double>(config::kL0_CompactionTrigger);
 
       // don't screw around ... get data written to disk!
+      //   (using really high 1000000 in case this is a repair scenario)
       if (config::kL0_SlowdownWritesTrigger <= v->files_[level].size())
-          score*=10.0;
+          score*=1000000.0;
+
+      if (config::kL0_CompactionTrigger <= v->files_[level].size())
+      {
+          penalty+=v->files_[level].size() - config::kL0_CompactionTrigger +1;
+      }   // if
 
     } else {
       // Compute the ratio of current size to size limit.
       const uint64_t level_bytes = TotalFileSize(v->files_[level]);
       score = static_cast<double>(level_bytes) / MaxBytesForLevel(level);
+
+      if (2<=score)
+          penalty+=static_cast<int>(score) -1;
     }
 
     if (score > best_score) {
@@ -980,6 +991,9 @@ void VersionSet::Finalize(Version* v) {
 
   v->compaction_level_ = best_level;
   v->compaction_score_ = best_score;
+  if (10<penalty)
+      penalty=10;
+  v->write_penalty_ = penalty;
 }
 
 Status VersionSet::WriteSnapshot(log::Writer* log) {

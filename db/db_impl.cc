@@ -68,6 +68,7 @@ struct DBImpl::CompactionState {
   TableBuilder* builder;
 
   uint64_t total_bytes;
+  uint64_t num_entries;
 
   Output* current_output() { return &outputs[outputs.size()-1]; }
 
@@ -75,7 +76,8 @@ struct DBImpl::CompactionState {
       : compaction(c),
         outfile(NULL),
         builder(NULL),
-        total_bytes(0) {
+        total_bytes(0),
+        num_entries(0) {
   }
 };
 
@@ -473,9 +475,10 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
     mutex_.Lock();
   }
 
-  Log(options_.info_log, "Level-0 table #%llu: %lld bytes %s",
+  Log(options_.info_log, "Level-0 table #%llu: %llu bytes, %llu keys %s",
       (unsigned long long) meta.number,
       (unsigned long long) meta.file_size,
+      (unsigned long long) meta.num_entries,
       s.ToString().c_str());
   delete iter;
   pending_outputs_.erase(meta.number);
@@ -498,6 +501,13 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
   stats.micros = env_->NowMicros() - start_micros;
   stats.bytes_written = meta.file_size;
   stats_[level].Add(stats);
+
+  if (0!=meta.num_entries && s.ok())
+  {
+      // 2x since mem to disk, not disk to disk
+      versions_->SetWriteRate(2*stats.micros/meta.num_entries);
+  }   // if
+
   return s;
 }
 
@@ -833,6 +843,7 @@ Status DBImpl::FinishCompactionOutputFile(CompactionState* compact,
   const uint64_t current_bytes = compact->builder->FileSize();
   compact->current_output()->file_size = current_bytes;
   compact->total_bytes += current_bytes;
+  compact->num_entries += compact->builder->NumEntries();
   delete compact->builder;
   compact->builder = NULL;
 
@@ -1022,6 +1033,8 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
   stats_[compact->compaction->level() + 1].Add(stats);
 
   if (status.ok()) {
+    if (0!=compact->num_entries)
+      versions_->SetWriteRate(stats.micros/compact->num_entries);
     status = InstallCompactionResults(compact);
   }
   VersionSet::LevelSummaryStorage tmp;
@@ -1285,11 +1298,24 @@ Status DBImpl::MakeRoomForWrite(bool force) {
   bool allow_delay = !force;
   Status s;
 
+#if 0
   mutex_.Unlock();
   /// slowing things down
   // shared thread block throttle
   env_->WriteThrottle(versions_->NumLevelFiles(0));
   mutex_.Lock();
+#else
+  int throttle;
+
+  throttle=versions_->WriteThrottleUsec();
+  if (0!=throttle)
+  {
+      mutex_.Unlock();
+      /// slowing things down
+      env_->SleepForMicroseconds(throttle);
+      mutex_.Lock();
+  }   // if
+#endif
 
   // hint to background compaction.
   level0_good=(versions_->NumLevelFiles(0) < config::kL0_CompactionTrigger);
