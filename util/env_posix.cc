@@ -39,8 +39,13 @@
 
 namespace leveldb {
 
+#if 0
 pthread_rwlock_t gThreadLock0;
 pthread_rwlock_t gThreadLock1;
+#else
+volatile int gThreadCount0=0;
+volatile int gThreadCount1=0;
+#endif
 
 pthread_mutex_t gThrottleMutex;
 
@@ -1310,8 +1315,10 @@ static void InitDefaultEnv()
         default_env[loop]=new PosixEnv;
     }   // for
 
+#if 0
     pthread_rwlock_init(&gThreadLock0, NULL);
     pthread_rwlock_init(&gThreadLock1, NULL);
+#endif
     pthread_mutex_init(&gThrottleMutex, NULL);
 
     memset(&gThrottleData, 0, sizeof(gThrottleData));

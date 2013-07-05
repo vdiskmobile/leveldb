@@ -369,8 +369,13 @@ class EnvWrapper : public Env {
   Env* target_;
 };
 
+#if 0
 extern pthread_rwlock_t gThreadLock0;
 extern pthread_rwlock_t gThreadLock1;
+#else
+extern volatile int gThreadCount0;
+extern volatile int gThreadCount1;
+#endif
 
 }  // namespace leveldb
 

@@ -888,9 +888,11 @@ Status DBImpl::BackgroundCompaction() {
   mutex_.AssertHeld();
 
   if (imm_ != NULL) {
-    pthread_rwlock_rdlock(&gThreadLock0);
+//    pthread_rwlock_rdlock(&gThreadLock0);
+      ++gThreadCount0;
     status=CompactMemTable();
-    pthread_rwlock_unlock(&gThreadLock0);
+//    pthread_rwlock_unlock(&gThreadLock0);
+    --gThreadCount0;
     return status;
   }
 
@@ -1121,7 +1123,8 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
   bool is_level0_compaction=(0 == compact->compaction->level());
 
   if (is_level0_compaction)
-      pthread_rwlock_rdlock(&gThreadLock1);
+//      pthread_rwlock_rdlock(&gThreadLock1);
+      ++gThreadCount1;
 
   const uint64_t start_micros = env_->NowMicros();
   int64_t imm_micros = 0;  // Micros spent doing imm_ compactions
@@ -1187,7 +1190,8 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
               //  dire compaction of level 0 files
               if ((int)config::kL0_SlowdownWritesTrigger < versions_->current()->NumFiles(0))
               {
-                  pthread_rwlock_rdlock(&gThreadLock1);
+//                  pthread_rwlock_rdlock(&gThreadLock1);
+                  ++gThreadCount1;
                   is_level0_compaction=true;
               }   // if
           }   // if
@@ -1230,7 +1234,8 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
   }
 
   if (is_level0_compaction)
-      pthread_rwlock_unlock(&gThreadLock1);
+//      pthread_rwlock_unlock(&gThreadLock1);
+      --gThreadCount1;
 
   mutex_.Lock();
   stats_[compact->compaction->level() + 1].Add(stats);
@@ -1270,13 +1275,15 @@ DBImpl::PrioritizeWork(
         if (has_imm_.NoBarrier_Load() != NULL) {
             mutex_.Lock();
             if (imm_ != NULL) {
-                if (IsLevel0)
-                    pthread_rwlock_unlock(&gThreadLock1);
-                pthread_rwlock_rdlock(&gThreadLock0);
+//                if (IsLevel0)
+//                    pthread_rwlock_unlock(&gThreadLock1);
+//                pthread_rwlock_rdlock(&gThreadLock0);
+                ++gThreadCount0;
                 CompactMemTable();
-                pthread_rwlock_unlock(&gThreadLock0);
-                if (IsLevel0)
-                    pthread_rwlock_rdlock(&gThreadLock1);
+                --gThreadCount0;
+//                pthread_rwlock_unlock(&gThreadLock0);
+//                if (IsLevel0)
+//                    pthread_rwlock_rdlock(&gThreadLock1);
                 bg_cv_.SignalAll();  // Wakeup MakeRoomForWrite() if necessary
             }   // if
             mutex_.Unlock();
@@ -1284,6 +1291,7 @@ DBImpl::PrioritizeWork(
 
         // pause to potentially hand off disk to
         //  memtable threads
+#if 0
 #if defined(_POSIX_TIMEOUTS) && (_POSIX_TIMEOUTS - 200112L) >= 0L
         clock_gettime(CLOCK_REALTIME, &timeout);
         timeout.tv_sec+=1;
@@ -1300,11 +1308,15 @@ DBImpl::PrioritizeWork(
         if (0==ret_val)
             pthread_rwlock_unlock(&gThreadLock0);
         again=(ETIMEDOUT==ret_val);
-
+#else
+        if (0!=gThreadCount0)
+            pthread_yield();
+#endif
         // Give priorities to level 0 compactions, unless
         //  this compaction is blocking a level 0 in this database
         if (!IsLevel0 && level0_good && !again)
         {
+#if 0
 #if defined(_POSIX_TIMEOUTS) && (_POSIX_TIMEOUTS - 200112L) >= 0L
             clock_gettime(CLOCK_REALTIME, &timeout);
             timeout.tv_sec+=1;
@@ -1322,6 +1334,10 @@ DBImpl::PrioritizeWork(
             if (0==ret_val)
                 pthread_rwlock_unlock(&gThreadLock1);
             again=again || (ETIMEDOUT==ret_val);
+#else
+            if (0!=gThreadCount1)
+                pthread_yield();
+#endif
         }   // if
     } while(again);
 
