@@ -1274,6 +1274,7 @@ void BGFileCloser2(void * arg)
 
 
 #if defined(HAVE_FADVISE)
+#if 0
   // release newly written data from Linux page cache if possible
   if (0==file_ptr->metadata_
       || (file_ptr->offset_ + file_ptr->length_ < file_ptr->metadata_))
@@ -1294,6 +1295,7 @@ void BGFileCloser2(void * arg)
         }  // if
     }   // if
   else
+#endif
     {
       ret_val=posix_fadvise(file_ptr->fd_, file_ptr->offset_, file_ptr->length_, POSIX_FADV_WILLNEED);
       if (0!=ret_val)
@@ -1365,6 +1367,7 @@ void BGFileUnmapper2(void * arg)
     }  // if
 
 #if defined(HAVE_FADVISE)
+#if 0
   if (0==file_ptr->metadata_
       || (file_ptr->offset_ + file_ptr->length_ < file_ptr->metadata_))
     {
@@ -1384,6 +1387,7 @@ void BGFileUnmapper2(void * arg)
         }  // if
     }   // if
   else
+#endif
     {
       ret_val=posix_fadvise(file_ptr->fd_, file_ptr->offset_, file_ptr->length_, POSIX_FADV_WILLNEED);
       if (0!=ret_val)
