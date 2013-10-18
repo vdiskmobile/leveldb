@@ -54,16 +54,16 @@ static struct
 
 // WARNING: m_OverlappedFiles flags need to match config::kNumOverlapFiles ... until unified
 {
-    {10485760,  262144000,  57671680,      209715200,             0,  300000000, true},
-    {10485760,   82914560,  57671680,      419430400,             0,  209715200, true},
-    {10485760,  104371840,  57671680,     1006632960,     200000000,  314572800, false},
-    {10485760,  125829120,  57671680,     4094304000,    3355443200,  419430400, false},
+    {10485760,  262144000,  57671680,      209715200,                0,     300000000, true},
+    {10485760,   82914560,  57671680,      419430400,                0,     209715200, true},
+    {10485760,  104371840,  57671680,     1006632960,        200000000,     314572800, false},
+    {10485760,  125829120,  57671680,     4094304000ULL,    3355443200ULL,  419430400, false},
     {10485760,  147286400,  57671680,    41943040000ULL,   33554432000ULL,  524288000, false},
     {10485760,  188743680,  57671680,   419430400000ULL,  335544320000ULL,  629145600, false},
     {10485760,  220200960,  57671680,  4194304000000ULL, 3355443200000ULL,  734003200, false}
 };
 
-
+/// ULL above needed to compile on OSX 10.7.3
 
 static int64_t TotalFileSize(const std::vector<FileMetaData*>& files) {
   int64_t sum = 0;
@@ -434,8 +434,8 @@ Status Version::Get(const ReadOptions& options,
 }
 
 bool Version::UpdateStats(const GetStats& stats) {
-  FileMetaData* f = stats.seek_file;
 #if 0
+  FileMetaData* f = stats.seek_file;
   if (f != NULL) {
     f->allowed_seeks--;
     if (f->allowed_seeks <= 0 && file_to_compact_ == NULL) {

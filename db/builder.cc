@@ -2,6 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file. See the AUTHORS file for names of contributors.
 
+#define __STDC_FORMAT_MACROS
+#include <inttypes.h>
+
 #include "db/builder.h"
 
 #include "db/filename.h"
@@ -100,10 +103,8 @@ Status BuildTable(const std::string& dbname,
     // Keep it
       if (0!=keys_retired)
       {
-          Log(options.info_log, "Level-0 table #%llu: %llu keys seen, %llu keys retired",
-              (unsigned long long) meta->number,
-              (unsigned long long) keys_seen,
-              (unsigned long long) keys_retired);
+          Log(options.info_log, "Level-0 table #%" PRIu64 ": %zd keys seen, %zd keys retired",
+              meta->number, keys_seen, keys_retired);
       }   // if
   } else {
     env->DeleteFile(fname);

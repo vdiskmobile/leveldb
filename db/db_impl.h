@@ -68,8 +68,8 @@ class DBImpl : public DB {
   void PurgeExpiredFileCache() {double_cache.PurgeExpiredFiles();};
 
   void BackgroundImmCompactCall();
-  bool IsCompactionScheduled() {return(bg_compaction_scheduled_ || NULL!=imm_);};
-  uint32_t RunningCompactionCount() {return(running_compactions_);};
+  bool IsCompactionScheduled() {mutex_.AssertHeld(); return(bg_compaction_scheduled_ || NULL!=imm_);};
+  uint32_t RunningCompactionCount() {mutex_.AssertHeld(); return(running_compactions_);};
 
  private:
   friend class DB;
@@ -201,10 +201,9 @@ class DBImpl : public DB {
 
   // hint to background thread when level0 is backing up
   volatile bool level0_good;
-  volatile uint32_t running_compactions_;
 
   volatile uint64_t throttle_end;
-
+  volatile uint32_t running_compactions_;
 
   // accessor to new, dynamic block_cache
   Cache * block_cache() {return(double_cache.GetBlockCache());};
