@@ -67,6 +67,10 @@ class DBImpl : public DB {
   size_t GetCacheCapacity() {return(double_cache.GetCapacity(false));}
   void PurgeExpiredFileCache() {double_cache.PurgeExpiredFiles();};
 
+  void BackgroundImmCompactCall();
+  bool IsCompactionScheduled() {return(bg_compaction_scheduled_ || NULL!=imm_);};
+  uint32_t RunningCompactionCount() {return(running_compactions_);};
+
  private:
   friend class DB;
   struct CompactionState;
@@ -101,7 +105,7 @@ class DBImpl : public DB {
                         VersionEdit* edit,
                         SequenceNumber* max_sequence);
 
-  Status WriteLevel0Table(MemTable* mem, VersionEdit* edit, Version* base);
+  Status WriteLevel0Table(volatile MemTable* mem, VersionEdit* edit, Version* base);
 
   Status MakeRoomForWrite(bool force /* compact even if there is room? */);
   WriteBatch* BuildBatchGroup(Writer** last_writer);
@@ -144,7 +148,7 @@ class DBImpl : public DB {
 
   port::CondVar bg_cv_;          // Signalled when background work finishes
   MemTable* mem_;
-  MemTable* imm_;                // Memtable being compacted
+  volatile MemTable* imm_;                // Memtable being compacted
   port::AtomicPointer has_imm_;  // So bg thread can detect non-NULL imm_
   WritableFile* logfile_;
   uint64_t logfile_number_;
@@ -171,7 +175,7 @@ class DBImpl : public DB {
     const InternalKey* end;     // NULL means end of key range
     InternalKey tmp_storage;    // Used to keep track of compaction progress
   };
-  ManualCompaction* manual_compaction_;
+  volatile ManualCompaction* manual_compaction_;
 
   VersionSet* versions_;
 
@@ -197,6 +201,7 @@ class DBImpl : public DB {
 
   // hint to background thread when level0 is backing up
   volatile bool level0_good;
+  volatile uint32_t running_compactions_;
 
   volatile uint64_t throttle_end;
 
