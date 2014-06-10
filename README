@@ -84,3 +84,6 @@ So estimated memory usage of a database =
   + max_open_files*4194304 
   + (size in NewLRUCache initialization)
   
+you can build with commond line: "make all", then it will make file named "libleveldb.a", 
+so you can use it in your project.
+  
